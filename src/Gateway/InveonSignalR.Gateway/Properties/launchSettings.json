@@ -1,4 +1,4 @@
-﻿{
+{
   "$schema": "https://json.schemastore.org/launchsettings.json",
   "iisSettings": {
     "windowsAuthentication": false,
@@ -12,10 +12,10 @@
     "InveonSignalR.APIGateway": {
       "commandName": "Project",
       "launchBrowser": true,
+      "applicationUrl": "https://localhost:5050/",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
-      },
-      "applicationUrl": "https://localhost:5050/"
+      }
     }
   }
 }
