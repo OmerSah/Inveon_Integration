@@ -2,8 +2,6 @@
 - Uses FluentEmail and Twilio SendGrid to send email to users
 - Simulates the checkout operations with Iyzico sandbox environment
 
-<br>
-
 # Payment Steps
 <div align="center">
 
