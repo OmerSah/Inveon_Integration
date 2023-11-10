@@ -1,4 +1,6 @@
-﻿using MessageBus;
+﻿
+
+using MessageBus;
 
 namespace ShoppingCard.API.RabbitMQ
 {

@@ -1,4 +1,5 @@
-﻿namespace MessageBus
+﻿
+namespace MessageBus
 {
     public interface IMessageBus
     {

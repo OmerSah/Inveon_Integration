@@ -6,6 +6,7 @@ using ShoppingCard.API;
 using ShoppingCard.API.Context;
 using ShoppingCard.API.RabbitMQ;
 using ShoppingCard.API.Repositories;
+using ShoppingCard.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +26,7 @@ builder.Services.AddSingleton(mapper);
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 builder.Services.AddScoped<ICartRepository, CartRepository>();
 builder.Services.AddScoped<ICouponRepository, CouponRepository>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 //services.AddSingleton<IMessageBus, AzureServiceBusMessageBus>();
 builder.Services.AddSingleton<IRabbitMQCartMessageSender, RabbitMQCartMessageSender>();
 builder.Services.AddControllers();

@@ -7,6 +7,7 @@ using ShoppingCard.API.Dtos;
 using ShoppingCard.API.Messages;
 using ShoppingCard.API.RabbitMQ;
 using ShoppingCard.API.Repositories;
+using ShoppingCard.API.Services;
 
 namespace ShoppingCard.API.Controllers
 {
@@ -17,16 +18,22 @@ namespace ShoppingCard.API.Controllers
 
         private readonly ICartRepository _cartRepository;
         private readonly ICouponRepository _couponRepository;
+        private readonly IEmailService _emailService;
         // private readonly IMessageBus _messageBus;
         protected ResponseDto _response;
         private readonly IRabbitMQCartMessageSender _rabbitMQCartMessageSender;
         // IMessageBus messageBus,
-        public CartAPICheckOutController(ICartRepository cartRepository,
-            ICouponRepository couponRepository, IRabbitMQCartMessageSender rabbitMQCartMessageSender)
+        public CartAPICheckOutController(
+            ICartRepository cartRepository,
+            ICouponRepository couponRepository,
+            IRabbitMQCartMessageSender rabbitMQCartMessageSender,
+            IEmailService emailService
+        )
         {
             _cartRepository = cartRepository;
             _couponRepository = couponRepository;
             _rabbitMQCartMessageSender = rabbitMQCartMessageSender;
+            _emailService = emailService;
             //_messageBus = messageBus;
             this._response = new ResponseDto();
         }
@@ -63,6 +70,12 @@ namespace ShoppingCard.API.Controllers
 
                 Payment payment = OdemeIslemi(checkoutHeader);
                 _rabbitMQCartMessageSender.SendMessage(checkoutHeader, "checkoutqueue");
+                EmailDto emailDto = new EmailDto();
+                emailDto.Subject = "Ödeme İşlemi";
+                emailDto.Body = $"Ödeme işleminiz başarıyla gerçekleşmiştir. {checkoutHeader.FirstName} {checkoutHeader.LastName} {checkoutHeader.OrderTotal}$" ;
+                emailDto.To = checkoutHeader.Email;
+                _emailService.SendEmail(emailDto);
+                Console.WriteLine($"Ödeme işleminiz başarıyla gerçekleşmiştir. {checkoutHeader.FirstName} {checkoutHeader.LastName} {checkoutHeader.OrderTotal}$");
                 await _cartRepository.ClearCart(checkoutHeader.UserId);
             }
             catch (Exception ex)
@@ -80,20 +93,17 @@ namespace ShoppingCard.API.Controllers
 
             Options options = new Options();
 
-            options.ApiKey = "sandbox-8zkTEIzQ8rikWsvPkL76V8kAvo4DpYuz";
-            options.SecretKey = "sandbox-56FjiYYrjkAuSqENtt0k8b7Ei03s8X61";
+            options.ApiKey = "sandbox-0l8rAJLEGKScJKtCr1BvWCpHj1GMzFOj";
+            options.SecretKey = "sandbox-3ApoMiDQOWaryOMlXeWKNkvchqJqDYQb";
             options.BaseUrl = "https://sandbox-api.iyzipay.com";
 
             CreatePaymentRequest request = new CreatePaymentRequest();
             request.Locale = Locale.TR.ToString();
             request.ConversationId = new Random().Next(1111, 9999).ToString();
-            request.Price = "1";
-            request.PaidPrice = "1.2";
-            //request.Price = "15";//checkoutHeaderDto.OrderTotal.ToString();
-            //request.PaidPrice = "15";//checkoutHeaderDto.OrderTotal.ToString();
+            request.Price = checkoutHeaderDto.OrderTotal.ToString();
+            request.PaidPrice = checkoutHeaderDto.OrderTotal.ToString();
             request.Currency = Currency.TRY.ToString();
             request.Installment = 1;
-            request.BasketId = "B67832";
             request.BasketId = checkoutHeaderDto.CartHeaderId.ToString();
             request.PaymentChannel = PaymentChannel.WEB.ToString();
             request.PaymentGroup = PaymentGroup.PRODUCT.ToString();
@@ -105,7 +115,7 @@ namespace ShoppingCard.API.Controllers
             paymentCard.ExpireYear = checkoutHeaderDto.ExpiryYear;
             paymentCard.Cvc = checkoutHeaderDto.CVV;
             paymentCard.RegisterCard = 0;
-            paymentCard.CardAlias = "Infotech";
+            paymentCard.CardAlias = "Inveon";
             request.PaymentCard = paymentCard;
 
             Buyer buyer = new Buyer();
@@ -126,7 +136,7 @@ namespace ShoppingCard.API.Controllers
             request.Buyer = buyer;
 
             Address shippingAddress = new Address();
-            shippingAddress.ContactName = "Jane Doe";
+            shippingAddress.ContactName = checkoutHeaderDto.FirstName;
             shippingAddress.City = "Istanbul";
             shippingAddress.Country = "Turkey";
             shippingAddress.Description = "Nidakule Göztepe, Merdivenköy Mah. Bora Sok. No:1";
@@ -142,35 +152,20 @@ namespace ShoppingCard.API.Controllers
             request.BillingAddress = billingAddress;
 
             List<BasketItem> basketItems = new List<BasketItem>();
-            BasketItem firstBasketItem = new BasketItem();
-            firstBasketItem.Id = "BI101";
-            firstBasketItem.Name = "Binocular";
-            firstBasketItem.Category1 = "Collectibles";
-            firstBasketItem.Category2 = "Accessories";
-            firstBasketItem.ItemType = BasketItemType.PHYSICAL.ToString();
-            firstBasketItem.Price = "0.3";
-            basketItems.Add(firstBasketItem);
 
-            BasketItem secondBasketItem = new BasketItem();
-            secondBasketItem.Id = "BI102";
-            secondBasketItem.Name = "Game code";
-            secondBasketItem.Category1 = "Game";
-            secondBasketItem.Category2 = "Online Game Items";
-            secondBasketItem.ItemType = BasketItemType.VIRTUAL.ToString();
-            secondBasketItem.Price = "0.5";
-            basketItems.Add(secondBasketItem);
-
-            BasketItem thirdBasketItem = new BasketItem();
-            thirdBasketItem.Id = "BI103";
-            thirdBasketItem.Name = "Usb";
-            thirdBasketItem.Category1 = "Electronics";
-            thirdBasketItem.Category2 = "Usb / Cable";
-            thirdBasketItem.ItemType = BasketItemType.PHYSICAL.ToString();
-            thirdBasketItem.Price = "0.2";
-            basketItems.Add(thirdBasketItem);
+            foreach (var item in checkoutHeaderDto.CartDetails)
+            {
+                Console.WriteLine("ITEM: " + item.Product.Name + item.Product.Price);
+                BasketItem basketItem = new BasketItem();
+                basketItem.Id = item.ProductId.ToString();
+                basketItem.Name = item.Product.Name;
+                basketItem.Category1 = item.Product.CategoryName;
+                basketItem.ItemType = BasketItemType.PHYSICAL.ToString();
+                basketItem.Price = (item.Product.Price * item.Count).ToString();
+                basketItems.Add(basketItem);
+            }
+            
             request.BasketItems = basketItems;
-
-            //Payment payment = Payment.Create(request, options);
 
             return Payment.Create(request, options);
         }
